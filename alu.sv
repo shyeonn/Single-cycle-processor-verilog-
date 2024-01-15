@@ -26,10 +26,9 @@ module alu
         case (alu_control)
             4'b0000: result = in1 & in2;
             4'b0001: result = in1 | in2;
-            //4'b0010: result = in1 + in2;
+            4'b0010: result = in1 + in2;
 			4'b0011: result = in1 ^ in2;
             4'b0110: result = in1 - in2;
-            default: result = in1 + in2;    // default = add
 		endcase
     end
 
