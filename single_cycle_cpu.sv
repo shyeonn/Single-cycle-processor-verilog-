@@ -48,7 +48,7 @@ module single_cycle_cpu
      * Generating control signals using opcode = inst[6:0]
      */
     logic   [6:0]   opcode;
-    logic   [3:0]   branch;
+    logic   [5:0]   branch;
     logic           alu_src, mem_to_reg;
     logic   [1:0]   alu_op;
     logic   [2:0]   funct3;
@@ -59,20 +59,19 @@ module single_cycle_cpu
     // i.e., branch[0] = beq, branch[1] = bne, branch[2] = blt, branch[3] = bge
 
     // COMPLETE THE MAIN CONTROL UNIT HERE
-    assign opcode = ;
-    assign branch[0] = ;
-    assign branch[1] = ;
-    assign branch[2] = ;
-    assign branch[3] = ;
+    assign opcode = inst[6:0];
+	assign funct3 = inst[14:12];
+	assign funct7 = inst[31:25];
+    assign branch = 'b1 << funct3; 
 
-    assign mem_read = ;    // ld
-    assign mem_write = ;   // sd
-    assign mem_to_reg = ;
-    assign reg_write = ; // ld, r-type, or i-type
-    assign alu_src = ;   // ld, sd, or i-type
+    assign mem_read = ~|(opcode ^ 7'b0000011);    // ld
+    assign mem_write = ~|(opcode ^ 7'b0100011);   // sd
+    assign mem_to_reg = mem_read; //ld
+    assign reg_write = mem_read |  ~|(opcode ^ 7'b0110011) | ~|(opcode ^ 7'b0010011); // ld, r-type, or i-type
+    assign alu_src = mem_read | ~|(opcode ^ 7'b1100011);   // ld, sb, or i-type
 
-    assign alu_op[0] = ;
-    assign alu_op[1] = ;    // r-type or i-type
+    assign alu_op[0] = ~|(opcode ^ 7'b1100011); //branch 
+    assign alu_op[1] = ~|(opcode ^ 7'b0110011) | ~|(opcode ^ 7'b0010011);    // r-type or i-type
 
 
     // --------------------------------------------------------------------
@@ -86,8 +85,18 @@ module single_cycle_cpu
     //logic   [2:0]   funct3;   // declared above
 
     // COMPLETE THE ALU CONTROL UNIT HERE
-
-
+	always_comb begin
+		case ({alu_op, funct3}) 
+			{2'b00, funct3}: alu_control = 4'b0010; // ld/st
+			{2'b01, funct3}: alu_control = 4'b0110; // br
+			{2'b10, 3'b000}: alu_control = |(opcode ^ 7'b0010011) & funct7[5] ? 4'b0110 : 4'b0010; // sub / add
+			{2'b10, 3'b101}: alu_control = 4'b0101; //sr
+			{2'b10, 3'b001}: alu_control = 4'b0111; //sl
+			{2'b10, 3'b100}: alu_control = 4'b0011; //xor
+			{2'b10, 3'b110}: alu_control = 4'b0001; //or
+			{2'b10, 3'b111}: alu_control = 4'b0000; //and
+		endcase
+	end
 
     // ---------------------------------------------------------------------
 
@@ -102,8 +111,17 @@ module single_cycle_cpu
     logic   [11:0]  imm12;  // 12-bit immediate value extracted from inst
 
     // COMPLETE IMMEDIATE GENERATOR HERE
-
-
+	always_comb begin
+		case (opcode)
+			7'b0000011 : imm12 = inst[31:20]; //ld
+			7'b0100011 : imm12 = {inst[31:25], inst[11:7]}; //st
+			7'b0010011 : imm12 = inst[31:20]; //I
+			7'b1100011 : imm12 = {inst[31], inst[7], inst[30:25], inst[11:8]}; //SB
+		endcase 
+	end
+	
+	assign imm32 = $signed({{20{imm12[11]}}, imm12});
+	assign imm32_branch = imm32<<1;
 
     // ----------------------------------------------------------------------
 
@@ -113,13 +131,13 @@ module single_cycle_cpu
     logic   [31:0]  pc_next_plus4, pc_next_branch;
 
 
-    assign pc_next_plus4 = ;    // FILL THIS
+    assign pc_next_plus4 = pc_curr + 4;
 
     always_ff @ (posedge clk or negedge reset_b) begin
         if (~reset_b) begin
             pc_curr <= 'b0;
         end else begin
-            pc_curr <= ;        // FILL THIS
+            pc_curr <= pc_next;
         end
     end
 
@@ -127,29 +145,34 @@ module single_cycle_cpu
     // MUXes:
     // COMPLETE MUXES HERE
     // PC_NEXT
-    assign pc_next_sel = ;      // FILL THIS
+    assign pc_next_sel = alu_op[0] & (
+	  (branch[0] & alu_zero) |
+	  (branch[1] & !alu_zero) |
+	  ((branch[2]|branch[4]) & (!alu_zero & alu_sign)) |
+	  ((branch[3]|branch[5]) & (alu_zero & !alu_sign))) ;      // FILL THIS
+
     assign pc_next = (pc_next_sel) ? pc_next_branch: pc_next_plus4; // if branch is taken, pc_next_sel=1'b1
-    assign pc_next_branch = ;   // FILL THIS
+    assign pc_next_branch = pc_curr + imm32_branch;   // FILL THIS
 
     // ALU inputs
-    assign alu_in1 = ;
-    assign alu_in2 = ;
+    assign alu_in1 = rs1_dout;
+    assign alu_in2 = alu_src ? imm32 : rs2_dout;
 
     // RF din
-    assign rd_din = ;
+    assign rd_din = mem_to_reg ? dmem_dout : alu_result;
 
     // COMPLETE CONNECTIONS HERE
     // imem
-    assign imem_addr = ;
+    assign imem_addr = pc_curr[9:0];
 
     // regfile
-    assign rs1 = ;
-    assign rs2 = ;
-    assign rd = ;
+    assign rs1 = inst[19:15];
+    assign rs2 = inst[24:20];
+    assign rd = inst[11:7];
 
     // dmem
-    assign dmem_addr = ;
-    assign dmem_din = ;
+    assign dmem_addr = alu_result[9:0];
+    assign dmem_din = rs2_dout;
  
 
     // -----------------------------------------------------------------------
@@ -163,13 +186,46 @@ module single_cycle_cpu
         .IMEM_ADDR_WIDTH    (IMEM_ADDR_WIDTH)
     ) u_imem_0 (
         .addr               ( imem_addr     ),
-        .dout               (               )
+        .dout               ( inst     )
     );
 
     // REGFILE
+	regfile #(
+		.REG_WIDTH			(REG_WIDTH)
+	) u_regfile_0 (
+		.clk				(clk),
+		.rs1				(rs1),
+		.rs2				(rs2),
+		.rd					(rd),
+		.rd_din				(rd_din),
+		.reg_write			(reg_write),
+		.rs1_dout			(rs1_dout),
+		.rs2_dout			(rs2_dout)
+	);
 
     // ALU
+	alu #(
+		.REG_WIDTH			(REG_WIDTH)
+	) u_alu_0 (
+		.in1				(alu_in1),
+		.in2				(alu_in2),
+		.alu_control		(alu_control),
+		.result				(alu_result),
+		.zero				(alu_zero),
+		.sign				(alu_sign)
+	);
 
     // DMEM
+	dmem #(
+		.DMEM_DEPTH			(DMEM_DEPTH),
+		.DMEM_ADDR_WIDTH	(DMEM_ADDR_WIDTH)
+	) u_dmem_0 (
+		.clk				(clk),
+		.addr				(dmem_addr),
+		.din				(dmem_din),
+		.mem_read			(mem_read),
+		.mem_write			(mem_write),
+		.dout				(dmem_dout)
+	);
 
 endmodule
