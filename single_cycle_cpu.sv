@@ -68,7 +68,7 @@ module single_cycle_cpu
     assign mem_write = ~|(opcode ^ 7'b0100011);   // sd
     assign mem_to_reg = mem_read; //ld
     assign reg_write = mem_read |  ~|(opcode ^ 7'b0110011) | ~|(opcode ^ 7'b0010011); // ld, r-type, or i-type
-    assign alu_src = mem_read | ~|(opcode ^ 7'b1100011);   // ld, sb, or i-type
+    assign alu_src = mem_read | ~|(opcode ^ 7'b0100011) | ~|(opcode ^ 7'b0010011);   // ld, or i-type
 
     assign alu_op[0] = ~|(opcode ^ 7'b1100011); //branch 
     assign alu_op[1] = ~|(opcode ^ 7'b0110011) | ~|(opcode ^ 7'b0010011);    // r-type or i-type
