@@ -28,7 +28,9 @@ module alu
             4'b0001: result = in1 | in2;
             //4'b0010: result = in1 + in2;
 			4'b0011: result = in1 ^ in2;
-            4'b0110: result = in1 - in2;
+            4'b1000: result = in1 << in2;
+            4'b1010: result = in1 >> in2;
+            4'b1011: result = in1 >>> in2;
 			default: result = in1 + in2; 
 		endcase
     end
