@@ -63,7 +63,7 @@ module dmem
 		case (addr[1:0])	// synopsys full_case parallel_case
 			2'b00: dout_tmp = {dout3, dout2, dout1, dout0};
 			2'b01: dout_tmp = {dout0, dout3, dout2, dout1};
-			2'b10: dout_tmp = {dout1, dout2, dout3, dout2};
+			2'b10: dout_tmp = {dout1, dout0, dout3, dout2};
 			2'b11: dout_tmp = {dout2, dout1, dout0, dout3};
 		endcase
 	end
