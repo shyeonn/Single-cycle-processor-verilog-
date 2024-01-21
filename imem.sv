@@ -29,7 +29,7 @@ module imem
     initial begin
         for (int i = 0; i < IMEM_DEPTH; i++)
             data[i] = 'b0;
-        $readmemb("imem.mem", data);
+        $readmemh("imem.mem", data);
     end
 // synthesis translate_on
 
