@@ -1,27 +1,43 @@
 **Shift test**
+addi x1, x0, 2
+addi x2, x0, 1
+addi x3, x0, -1
 
-addi x1, x1, 0x2
-addi x2, x2, 0x2
-addi x3, x7, -1
+sll x4 , x1,   x2
+slli x5 , x1,   1
+srl x6 , x1,   x2 
+srli x7 , x1,   1
 
-sll x4, x1, x2
-slli x5, x1, 2
-srl x6, x1, x2 
-srli x7, x1, 2
-
-srl x8, x3, x2 
-sra x9, x3, x2
-srai x9, x3, 2
+srl x8 , x3,   x2 
+sra x9 , x3,   x2
+srai x10 , x3, 2
 
 
-00208093
-00210113
-fff38193
+00200093
+00100113
+fff00193
 00209233
-00209293
+00109293
 0020d333
-0020d393
+0010d393
 0021d433
 4021d4b3
-4021d493
+4021d513
 
+**Compare test**
+addi x1, x0, 2
+addi x2, x0, -1
+slt x3, x1, x2
+slti x4, x1, 3
+sltu x5, x1, x2
+sltiu x6, x1, 3
+sltiu x7, x1, 1
+
+
+00200093
+fff00113
+0020a1b3
+0030a213
+0020b2b3
+0030b313
+0010b393
