@@ -19,23 +19,32 @@ module alu
     input   [3:0]   alu_control,    // ALU control signal
     output  logic [REG_WIDTH-1:0] result, // ALU output
     output          zero,           // Zero detection
-    output          sign            // Sign bit
+    output          sign,            // Sign bit
+    output	    less_u
 );
+
+    logic [REG_WIDTH-1:0] in1_u;
+    logic [REG_WIDTH-1:0] in2_u;
+
+    assign in1_u = $unsigned(in1);
+    assign in2_u = $unsigned(in2);
 
     always_comb begin
         case (alu_control)
             4'b0000: result = in1 & in2;
             4'b0001: result = in1 | in2;
             //4'b0010: result = in1 + in2;
-			4'b0011: result = in1 ^ in2;
+	    4'b0011: result = in1 ^ in2;
             4'b1000: result = in1 << in2;
             4'b1010: result = in1 >> in2;
             4'b1011: result = in1 >>> in2;
-			default: result = in1 + in2; 
-		endcase
+	    4'b0110: result = in1 - in2;
+	    default: result = in1 + in2; 
+	endcase
     end
 
     assign zero = ~|result;
     assign sign = result[REG_WIDTH-1];
+    assign less_u = in1_u < in2_u;
 
 endmodule
