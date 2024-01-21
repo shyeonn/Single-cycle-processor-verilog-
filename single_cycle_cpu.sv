@@ -49,7 +49,7 @@ module single_cycle_cpu
      * Generating control signals using opcode = inst[6:0]
      */
     logic   [6:0]   opcode;
-    logic   [5:0]   branch;
+    logic   [7:0]   branch;
     logic           alu_src, mem_to_reg;
     logic   [1:0]   alu_op;
     logic   [2:0]   funct3;
@@ -116,7 +116,7 @@ module single_cycle_cpu
     logic   [REG_WIDTH-1:0]  imm32;
     logic   [REG_WIDTH-1:0]  imm32_branch;  // imm32 left shifted by 1
     logic   [11:0]  imm12;  // 12-bit immediate value extracted from inst
-    logic   [19:0]  imm20;
+    logic   [REG_WIDTH-2:0]  imm_jal;
 
     // COMPLETE IMMEDIATE GENERATOR HERE
 	always_comb begin
@@ -128,9 +128,9 @@ module single_cycle_cpu
 			7'b1100011 : imm12 = {inst[31], inst[7], inst[30:25], inst[11:8]}; //SB
 		endcase 
 	end
-	assign imm20 = jump ? {inst[20], inst[10:1], inst[11], inst[19:12]} : inst[31:12]; //UJ / U
+	assign imm_jal = {{12{inst[31]}}, inst[19:12], inst[20], inst[30:21]}; //JAL
 
-	assign imm32 = u_type ? {imm20, 12'b0} : $signed({{20{imm12[11]}}, imm12});
+	assign imm32 = (jump & opcode[3]) ? imm_jal : $signed({{20{imm12[11]}}, imm12});
 	assign imm32_branch = imm32<<1;
 
     // ----------------------------------------------------------------------
@@ -139,7 +139,7 @@ module single_cycle_cpu
     logic   [31:0]  pc_curr, pc_next;
     logic           pc_next_sel;    // selection signal for pc_next
     logic   [31:0]  pc_next_plus4, pc_next_branch;
-    logic   [21:0]  pc_imm;
+    logic   [31:0]  pc_imm;
 
 
     assign pc_next_plus4 = pc_curr + 4;
@@ -156,16 +156,17 @@ module single_cycle_cpu
     // MUXes:
     // COMPLETE MUXES HERE
     // PC_NEXT
-    assign pc_next_sel = alu_op[0] & (
+    assign pc_next_sel = jump | (alu_op[0] & (
 	  (branch[0] & alu_zero) |
 	  (branch[1] & !alu_zero) |
-	  ((branch[2]|branch[4]) & (!alu_zero & alu_sign)) |
-	  ((branch[3]|branch[5]) & (alu_zero & !alu_sign))) ;      // FILL THIS
-
-    assign pc_imm = opcode[3] ? imm20 << 1 : imm12; // JALR / JAR
+	  ((branch[4]) & (!alu_zero & alu_sign)) |
+	  ((branch[5]) & !(!alu_zero & alu_sign)) |
+	  ((branch[6]) & alu_less_u) |
+	  ((branch[7]) & !alu_less_u)
+	  ));
 
     assign pc_next = (pc_next_sel) ? pc_next_branch: pc_next_plus4; // if branch is taken, pc_next_sel=1'b1
-    assign pc_next_branch = pc_curr + (jump ? pc_imm :imm32_branch);  // UJ / SB
+    assign pc_next_branch = pc_curr + ((jump & !opcode[3]) ? imm32 : imm32_branch);  // UJ / SB
 
     // ALU inputs
     assign alu_in1 = rs1_dout;
