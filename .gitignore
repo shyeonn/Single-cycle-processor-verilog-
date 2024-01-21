@@ -1,3 +1,6 @@
 obj_dir/
 report.txt
 wave.vcd
+dmem.mem
+imem.mem
+
