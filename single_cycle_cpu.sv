@@ -36,6 +36,7 @@ module single_cycle_cpu
     logic   [REG_WIDTH-1:0] alu_result;
     logic           alu_zero;
     logic           alu_sign;
+    logic	    alu_less_u;
 
     logic   [DMEM_ADDR_WIDTH-1:0]    dmem_addr;
     logic   [31:0]  dmem_din, dmem_dout;
@@ -64,10 +65,14 @@ module single_cycle_cpu
 	assign funct7 = inst[31:25];
     assign branch = 'b1 << funct3; 
 
+    assign u_type = ~|(opcode ^ 7'b0x10111);
+    assign jump = ~|(opcode ^ 7'b110x111);
+
     assign mem_read = ~|(opcode ^ 7'b0000011);    // ld
     assign mem_write = ~|(opcode ^ 7'b0100011);   // sd
     assign mem_to_reg = mem_read; //ld
-    assign reg_write = mem_read |  ~|(opcode ^ 7'b0110011) | ~|(opcode ^ 7'b0010011); // ld, r-type, or i-type
+    // ld, r-type, i-type, U or jump type
+    assign reg_write = mem_read |  ~|(opcode ^ 7'b0110011) | ~|(opcode ^ 7'b0010011) | u_type | jump; 
     assign alu_src = mem_read | ~|(opcode ^ 7'b0100011) | ~|(opcode ^ 7'b0010011);   // ld, or i-type
 
     assign alu_op[0] = ~|(opcode ^ 7'b1100011); //branch 
@@ -91,6 +96,8 @@ module single_cycle_cpu
 			{2'b01, funct3}: alu_control = 4'b0110; // br
 			{2'b10, 3'b000}: alu_control = |(opcode ^ 7'b0010011) & funct7[5] ? 4'b0110 : 4'b0010; // sub / add
 			{2'b10, 3'b001}: alu_control = 4'b1000; //sl
+			{2'b10, 3'b010}: alu_control = 4'b0110; //set less then
+			{2'b10, 3'b011}: alu_control = 4'b0110; //set less then unsigned
 			{2'b10, 3'b101}: alu_control = funct7[5] ? 4'b1011 : 4'b1010; //sr(logi) / sr(ari)
 			{2'b10, 3'b100}: alu_control = 4'b0011; //xor
 			{2'b10, 3'b110}: alu_control = 4'b0001; //or
@@ -109,6 +116,7 @@ module single_cycle_cpu
     logic   [REG_WIDTH-1:0]  imm32;
     logic   [REG_WIDTH-1:0]  imm32_branch;  // imm32 left shifted by 1
     logic   [11:0]  imm12;  // 12-bit immediate value extracted from inst
+    logic   [19:0]  imm20;
 
     // COMPLETE IMMEDIATE GENERATOR HERE
 	always_comb begin
@@ -116,11 +124,13 @@ module single_cycle_cpu
 			7'b0000011 : imm12 = inst[31:20]; //ld
 			7'b0100011 : imm12 = {inst[31:25], inst[11:7]}; //st
 			7'b0010011 : imm12 = inst[31:20]; //I
+			7'b1100111 : imm12 = inst[31:20]; //I(JALR)
 			7'b1100011 : imm12 = {inst[31], inst[7], inst[30:25], inst[11:8]}; //SB
 		endcase 
 	end
-	
-	assign imm32 = $signed({{20{imm12[11]}}, imm12});
+	assign imm20 = jump ? {inst[20], inst[10:1], inst[11], inst[19:12]} : inst[31:12]; //UJ / U
+
+	assign imm32 = u_type ? {imm20, 12'b0} : $signed({{20{imm12[11]}}, imm12});
 	assign imm32_branch = imm32<<1;
 
     // ----------------------------------------------------------------------
@@ -129,6 +139,7 @@ module single_cycle_cpu
     logic   [31:0]  pc_curr, pc_next;
     logic           pc_next_sel;    // selection signal for pc_next
     logic   [31:0]  pc_next_plus4, pc_next_branch;
+    logic   [21:0]  pc_imm;
 
 
     assign pc_next_plus4 = pc_curr + 4;
@@ -151,15 +162,30 @@ module single_cycle_cpu
 	  ((branch[2]|branch[4]) & (!alu_zero & alu_sign)) |
 	  ((branch[3]|branch[5]) & (alu_zero & !alu_sign))) ;      // FILL THIS
 
+    assign pc_imm = opcode[3] ? imm20 << 1 : imm12; // JALR / JAR
+
     assign pc_next = (pc_next_sel) ? pc_next_branch: pc_next_plus4; // if branch is taken, pc_next_sel=1'b1
-    assign pc_next_branch = pc_curr + imm32_branch;   // FILL THIS
+    assign pc_next_branch = pc_curr + (jump ? pc_imm :imm32_branch);  // UJ / SB
 
     // ALU inputs
     assign alu_in1 = rs1_dout;
     assign alu_in2 = alu_src ? imm32 : rs2_dout;
 
     // RF din
-    assign rd_din = mem_to_reg ? dmem_dout : alu_result;
+    logic comp_bit, is_comp;
+
+    assign is_comp = alu_op[1] & ~|(funct3[2:1] ^ 2'b01);
+    assign comp_bit = funct3[0] ? alu_less_u : (alu_sign & !alu_zero);
+
+    always_comb begin
+	case ({mem_to_reg, is_comp, u_type, jump})
+	    4'b1000: rd_din = dmem_dout;
+	    4'b0100: rd_din = comp_bit;
+	    4'b0010: rd_din = opcode[5] ? imm32 + pc_curr : imm32; // auipc / lui
+	    4'b0001: rd_din = pc_next_plus4;
+	    4'b0000: rd_din = alu_result;
+	endcase 
+    end
 
     // COMPLETE CONNECTIONS HERE
     // imem
@@ -230,7 +256,8 @@ module single_cycle_cpu
 		.alu_control		(alu_control),
 		.result				(alu_result),
 		.zero				(alu_zero),
-		.sign				(alu_sign)
+		.sign				(alu_sign),
+		.less_u				(alu_less_u)
 	);
 
 //    // DMEM (aligned)
