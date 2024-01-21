@@ -115,5 +115,4 @@ module dmem
 		if (we[2]) d2[addr2] <= din_tmp[23:16];
 		if (we[3]) d3[addr3] <= din_tmp[31:24];
 	end
-	
 endmodule
