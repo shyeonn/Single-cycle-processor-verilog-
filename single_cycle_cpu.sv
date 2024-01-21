@@ -65,8 +65,8 @@ module single_cycle_cpu
 	assign funct7 = inst[31:25];
     assign branch = 'b1 << funct3; 
 
-    assign u_type = ~|(opcode ^ 7'b0x10111);
-    assign jump = ~|(opcode ^ 7'b110x111);
+    assign u_type = ~|(opcode ^ 7'b0010111) | ~|(opcode ^ 7'b0110111);
+    assign jump = ~|(opcode ^ 7'b1100111) | ~|(opcode ^ 7'b1101111);
 
     assign mem_read = ~|(opcode ^ 7'b0000011);    // ld
     assign mem_write = ~|(opcode ^ 7'b0100011);   // sd

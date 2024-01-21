@@ -78,3 +78,34 @@ fff00093
 00900583
 00a00603
 00b00683
+
+**Arithmetic test**
+addi x1, x0, 2
+addi x2, x0, 3
+addi x3, x0, -5
+addi x4, x0, -1
+
+
+add x6, x1, x2
+add x7, x1, x3
+add x8, x1, x4
+
+sub x9, x1, x2
+sub x10, x1, x3
+sub x11, x1, x4
+
+lui x12, 0xFFF00
+auipc x13, 0xFFF00
+
+00200093
+00300113
+ffb00193
+fff00213
+00208333
+003083b3
+00408433
+402084b3
+40308533
+404085b3
+fff00637
+fff00697
