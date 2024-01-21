@@ -112,8 +112,8 @@ module dmem
 	always_ff @ (posedge clk) begin
 		if (we[0]) d0[addr0] <= din_tmp[7:0];
 		if (we[1]) d1[addr1] <= din_tmp[15:8];
-		if (we[2]) d2[addr2] <= din_tmp[24:16];
-		if (we[3]) d3[addr3] <= din_tmp[31:25];
+		if (we[2]) d2[addr2] <= din_tmp[23:16];
+		if (we[3]) d3[addr3] <= din_tmp[31:24];
 	end
 	
 endmodule
