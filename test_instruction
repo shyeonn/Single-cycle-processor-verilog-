@@ -1,0 +1,27 @@
+**Shift test**
+
+addi x1, x1, 0x2
+addi x2, x2, 0x2
+addi x3, x7, -1
+
+sll x4, x1, x2
+slli x5, x1, 2
+srl x6, x1, x2 
+srli x7, x1, 2
+
+srl x8, x3, x2 
+sra x9, x3, x2
+srai x9, x3, 2
+
+
+00208093
+00210113
+fff38193
+00209233
+00209293
+0020d333
+0020d393
+0021d433
+4021d4b3
+4021d493
+
