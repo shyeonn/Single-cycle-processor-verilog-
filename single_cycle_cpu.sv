@@ -90,8 +90,8 @@ module single_cycle_cpu
 			{2'b00, funct3}: alu_control = 4'b0010; // ld/st
 			{2'b01, funct3}: alu_control = 4'b0110; // br
 			{2'b10, 3'b000}: alu_control = |(opcode ^ 7'b0010011) & funct7[5] ? 4'b0110 : 4'b0010; // sub / add
-			{2'b10, 3'b101}: alu_control = 4'b0101; //sr
-			{2'b10, 3'b001}: alu_control = 4'b0111; //sl
+			{2'b10, 3'b001}: alu_control = 4'b1000; //sl
+			{2'b10, 3'b101}: alu_control = funct7[5] ? 4'b1011 : 4'b1010; //sr(logi) / sr(ari)
 			{2'b10, 3'b100}: alu_control = 4'b0011; //xor
 			{2'b10, 3'b110}: alu_control = 4'b0001; //or
 			{2'b10, 3'b111}: alu_control = 4'b0000; //and
@@ -175,6 +175,24 @@ module single_cycle_cpu
     assign dmem_din = rs2_dout;
  
 
+    // ----------------------------------------------------------------------
+
+    // Memory control unit (for unaligned access)
+	logic [1:0]		access_size;
+	logic [31:0]	dmem_dout_raw;
+	//
+	//
+	assign access_size = funct3[1:0];
+
+
+	always_comb begin
+		case (access_size)
+		  2'b00 : dmem_dout = funct3[2] ? {24'b0, dmem_dout_raw[7:0]} : {{24{dmem_dout_raw[7]}}, dmem_dout_raw[7:0]};
+		  2'b01 : dmem_dout = funct3[2] ? {16'b0, dmem_dout_raw[15:0]} : {{16{dmem_dout_raw[15]}}, dmem_dout_raw[15:0]};
+		  2'b10 : dmem_dout = dmem_dout_raw;
+		endcase 
+	end
+
     // -----------------------------------------------------------------------
     /* Instantiation of datapath elements
      * All input/output ports should be connected
@@ -215,17 +233,31 @@ module single_cycle_cpu
 		.sign				(alu_sign)
 	);
 
-    // DMEM
+//    // DMEM (aligned)
+//	dmem #(
+//		.DMEM_DEPTH			(DMEM_DEPTH),
+//		.DMEM_ADDR_WIDTH	(DMEM_ADDR_WIDTH)
+//	) u_dmem_0 (
+//		.clk				(clk),
+//		.addr				(dmem_addr),
+//		.din				(dmem_din),
+//		.mem_read			(mem_read),
+//		.mem_write			(mem_write),
+//		.dout				(dmem_dout)
+//	);
+
+    // DMEM (unaligned)
 	dmem #(
 		.DMEM_DEPTH			(DMEM_DEPTH),
 		.DMEM_ADDR_WIDTH	(DMEM_ADDR_WIDTH)
 	) u_dmem_0 (
 		.clk				(clk),
 		.addr				(dmem_addr),
+		.rd_en				(mem_read),
+		.wr_en				(mem_write),
+		.sz					(access_size),
 		.din				(dmem_din),
-		.mem_read			(mem_read),
-		.mem_write			(mem_write),
-		.dout				(dmem_dout)
+		.dout				(dmem_dout_raw)
 	);
 
 endmodule
